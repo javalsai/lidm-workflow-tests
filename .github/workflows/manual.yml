@@ -1,0 +1,14 @@
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+        default: ''
+        type: string
+
+jobs:
+  main:
+    uses: ./.github/workflows/main.yml
+    permissions: write-all
+    with:
+      version: ${{ inputs.version }}
