@@ -1,11 +1,15 @@
-name: Test Build
-
-on: push
+on:
+  - push:
+  - workflow_dispatch:
+      inputs:
+        version:
+          required: true
+          type: string
 
 jobs:
   spellcheck:
     name: Check Grammar
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +21,7 @@ jobs:
 
   shellcheck:
     name: Shell Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/check_build@v4
@@ -27,63 +31,100 @@ jobs:
           version: 1.0
       - run: shellcheck -P $(find . -type f -name '*.sh' -not -path './assets/pkg/aur/*/src/*')
 
-  check_build:
+  build-linux-amd64:
+    name: Build for amd64
+    runs-on: ubuntu-24.04
     permissions: write-all
-    strategy:
-      matrix:
-        include:
-          - arch_name: x86_64
-            cc: gcc
-            cflags:
-          - arch_name: x86
-            cc: gcc
-            cflags: -m32
 
-    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: "libpam0g-dev"
+          version: 1.0
+      - id: build
+        run: |
+          make CFLAGS="-O3 -Wall" 2> /tmp/stderr
+          cat /tmp/stderr >&2
+
+          HSIZE="$(stat --printf="%s" lidm | numfmt --to=iec-i)B"
+          WARNS="$(cat /tmp/stderr | grep '^[^ ]*\.[ch]:' | wc -l)"
+          mv lidm lidm-amd64
+
+          echo "DESCR='$HSIZE, $WARNS warnings'" >> "$GITHUB_OUTPUT"
+
       - uses: myrotvorets/set-commit-status-action@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          status: pending
-          context: Build (${{ matrix.arch_name }})
+          status: ${{ job.status }}
+          description: ${{ steps.build.outputs.DESCR }}
 
-      - name: Attempt Build (${{ matrix.arch_name }})
-        uses: ./.github/actions/build
+      - uses: actions/upload-artifact@v4
         with:
-          arch_name: ${{ matrix.arch_name }}
-          cc: ${{ matrix.cc }}
-          cflags: "-Wall ${{ matrix.cflags }}"
+          name: build-amd64
+          path: lidm-amd64
+          retention-days: 1
 
-      - name: Download Build Results
-        uses: actions/download-artifact@v4
+  build-linux-i386:
+    name: Build for i386
+    runs-on: ubuntu-24.04
+    permissions: write-all
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          name: build-${{ matrix.arch_name }}
-          path: build-results
+          packages: "libpam0g-dev gcc-multilib"
+          version: 1.0
+      - run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update -y
+          sudo apt-get install -y libpam0g-dev:i386
 
-      - name: Process Results
-        id: get-stats
-        if: always()
+      - id: build
         run: |
-          if ! [ -d "build-results" ]; then
-            # Build failed
-            echo "DESCR=" >> "$GITHUB_OUTPUT"
-          else
-            # Build Succeeded
-            cd "build-results"
-            ls -lah
-            cat stderr-* >&2
-            WARNS="$(cat stderr-* | grep '^[^ ]*\.[ch]:' | wc -l)"
-            HSIZE="$(stat --printf="%s" lidm-* | numfmt --to=iec-i)B"
+          make CFLAGS="-O3 -Wall -m32" 2> /tmp/stderr
+          cat /tmp/stderr >&2
 
-            echo "DESCR='$HSIZE, $WARNS warnings'" >> "$GITHUB_OUTPUT"
-          fi
+          HSIZE="$(stat --printf="%s" lidm | numfmt --to=iec-i)B"
+          WARNS="$(cat /tmp/stderr | grep '^[^ ]*\.[ch]:' | wc -l)"
+          mv lidm lidm-i386
 
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@master
-        if: always()
+          echo "DESCR='$HSIZE, $WARNS warnings'" >> "$GITHUB_OUTPUT"
+
+      - uses: myrotvorets/set-commit-status-action@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
-          context: Build (${{ matrix.arch_name }})
-          description: ${{ steps.get-stats.outputs.DESCR }}
+          description: ${{ steps.build.outputs.DESCR }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-i386
+          path: lidm-i386
+          retention-days: 1
+
+  release:
+    if: inputs.version != ''
+    name: Release v${{ inputs.version }}
+    runs-on: ubuntu-24.04
+    permissions: write-all
+    needs:
+      - build-amd64
+      - build-i386
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: builds
+          pattern: build-*
+          merge-multiple: true
+
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ inputs.version }}
+          commit: ${{ github.sha }}
+          artifacts: build-*/lidm-*
+          artifactsErrorsFailBuild: true
+          body: **TODO**
+
+        # TODO: get checksums and commit new AUR pkgbuilds
