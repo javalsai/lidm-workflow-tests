@@ -13,8 +13,8 @@ pkgbase = lidm-bin
 	source = default-theme.ini::https://raw.githubusercontent.com/javalsai/lidm/v0.1.0/themes/default.ini
 	source = lidm.1::https://raw.githubusercontent.com/javalsai/lidm/v0.1.0/assets/man/lidm.1
 	source = lidm-config.5::https://raw.githubusercontent.com/javalsai/lidm/v0.1.0/assets/man/lidm-config.5
-	sha256sums = b5d1dbdaa6b78da57be69ce5e2cc3366717a045de3cb316e66c1c3f36b796ee0
-	sha256sums = 27db9b0cd2da80c0c60dcb13dfad0f9d65e7dddbb7b344b859803b9ac3943cd7
+	sha256sums = 8baa50db15898d5498bd16c4c80d638a2f73b06a092408b57df033dc8396e4f3
+	sha256sums = f93466941173c63144df142835cc38d2d3064afdc82509c5b281bf14c3b92c6f
 	sha256sums = a6807a55ff72ec5a5678583156b3efd0d367f0bcb79854094132771f0cb86bce
 	sha256sums = c44f78940212b946e157eac02e159b215376d291d11adfe4925b594405ad85da
 

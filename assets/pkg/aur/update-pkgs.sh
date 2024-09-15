@@ -20,3 +20,4 @@ for pkg in "$MYDIR"/lidm{,-bin}/; do
     makepkg --printsrcinfo | tee .SRCINFO
     echo
 done
+# test
