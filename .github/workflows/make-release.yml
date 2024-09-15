@@ -19,6 +19,7 @@ jobs:
   release:
     name: Make Release v${{ inputs.version }}
     runs-on: ubuntu-24.04
+    container: archlinux:latest
     permissions: write-all
     needs: build
     steps:
@@ -33,7 +34,21 @@ jobs:
           tag: v${{ inputs.version }}
           commit: ${{ github.sha }}
           artifacts: builds/lidm-*
-          artifactsErrorsFailBuild: true
+          artifactErrorsFailBuild: true
           body: Release notes not generated yet.
 
-        # TODO: get checksums and commit new AUR pkgbuilds
+      - uses: actions/checkout@v4
+        with:
+          ref: 'v${{ inputs.version }}'
+
+      - run: pacman -Sy --noconfirm pacman-contrib
+
+      - run: |
+          cd "assets/pkg/aur"
+          chown nobody:nobody . -R
+          su - -s /bin/bash nobody -c "$PWD/update-pkgs.sh ${{ inputs.version }}"
+          su - -s /bin/bash nobody -c "$PWD/test-makepkg.sh" # This will also update -git pkgver
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: Update AUR pkgs to v${{ inputs.version }}
