@@ -15,7 +15,7 @@ jobs:
         with:
           packages: "git"
           version: 1.0
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-tags: true
 
@@ -73,7 +73,7 @@ jobs:
     needs: [ release-checks, release ]
     steps:
       - run: pacman -Sy --noconfirm git github-cli base-devel pacman-contrib
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - run: |
           chage -E -1 nobody
@@ -106,7 +106,7 @@ jobs:
     needs: [ release-checks, release ]
     steps:
       - uses: cachix/install-nix-action@v31
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-tags: true
 
